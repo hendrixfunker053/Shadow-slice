@@ -100,6 +100,12 @@ jobs:
         with:
           haxe-version: ${{ env.HAXE_VERSION }}
 
+      - name: Configure Git for dependency downloads
+        shell: bash
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global url."https://github.com/".insteadOf "git://github.com/"
+
       - name: Cache haxelib
         id: cache-haxelib
         uses: actions/cache@v4
@@ -115,21 +121,23 @@ jobs:
 
       - name: Install dependencies
         shell: bash
+        env:
+          GIT_TERMINAL_PROMPT: "0"
         run: |
-          for attempt in 1 2 3 4; do
-            echo "Installing Haxe dependencies (attempt $attempt/4)..."
+          for attempt in 1 2 3 4 5 6; do
+            echo "Installing Haxe dependencies (attempt $attempt/6)..."
             if haxelib run hmm install; then
               exit 0
             fi
 
-            if [ "$attempt" -lt 4 ]; then
+            if [ "$attempt" -lt 6 ]; then
               delay=$((attempt * 15))
               echo "Dependency installation failed; retrying in ${delay}s..."
               sleep "$delay"
             fi
           done
 
-          echo "::error::Haxe dependency installation failed after 4 attempts."
+          echo "::error::Haxe dependency installation failed after 6 attempts."
           exit 1
 
       - name: Build hxcpp
