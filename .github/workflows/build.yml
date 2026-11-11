@@ -60,6 +60,7 @@ jobs:
             "platforms;android-35" \
             "build-tools;35.0.0" \
             "ndk;27.2.12479018"
+
       - name: Configure Android
         shell: bash
         run: |
@@ -68,6 +69,7 @@ jobs:
           echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/27.2.12479018" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.2.12479018" >> "$GITHUB_ENV"
           echo "CXXFLAGS=-std=c++20" >> "$GITHUB_ENV"
+
       - name: Install Linux dependencies
         shell: bash
         run: |
@@ -92,6 +94,7 @@ jobs:
             libgl1-mesa-dev \
             libglu1-mesa-dev \
             pkg-config
+
       - name: Setup Haxe
         uses: krdlab/setup-haxe@v2
         with:
@@ -105,13 +108,29 @@ jobs:
           key: haxelib-android-${{ hashFiles('hmm.json') }}
           restore-keys: |
             haxelib-android-
+
       - name: Install HMM
         shell: bash
         run: haxelib install hmm --quiet
 
       - name: Install dependencies
         shell: bash
-        run: haxelib run hmm install
+        run: |
+          for attempt in 1 2 3 4; do
+            echo "Installing Haxe dependencies (attempt $attempt/4)..."
+            if haxelib run hmm install; then
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 4 ]; then
+              delay=$((attempt * 15))
+              echo "Dependency installation failed; retrying in ${delay}s..."
+              sleep "$delay"
+            fi
+          done
+
+          echo "::error::Haxe dependency installation failed after 4 attempts."
+          exit 1
 
       - name: Build hxcpp
         if: steps.cache-haxelib.outputs.cache-hit != 'true'
@@ -120,6 +139,7 @@ jobs:
           HXCPP_PATH=$(haxelib libpath hxcpp | tr -d '\n')
           cd "$HXCPP_PATH/tools/hxcpp"
           haxe compile.hxml
+
       - name: Rebuild Lime
         if: steps.cache-haxelib.outputs.cache-hit != 'true'
         shell: bash
@@ -133,6 +153,7 @@ jobs:
           $ANDROID_NDK_ROOT
           $JAVA_HOME
           EOF
+
       - name: Rebuild Lime Android
         if: steps.cache-haxelib.outputs.cache-hit != 'true'
         shell: bash
