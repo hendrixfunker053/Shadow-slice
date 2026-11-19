@@ -16,6 +16,7 @@ concurrency:
 
 env:
   HAXE_VERSION: "4.3.7"
+  HXCPP_COMMIT: "0376e9b19af9a4d91f9d9afc131a358467856a10"
 
 jobs:
   android:
@@ -97,26 +98,25 @@ jobs:
           git config --global url."https://github.com/".insteadOf "git://github.com/"
           haxelib setup "$GITHUB_WORKSPACE/.haxelib"
 
-      - name: Cache haxelib
-        uses: actions/cache@v4
-        with:
-          path: |
-            .haxelib
-            ~/.haxelib
-          key: haxelib-android-haxe-${{ env.HAXE_VERSION }}-${{ hashFiles('hmm.json') }}
-          restore-keys: |
-            haxelib-android-haxe-${{ env.HAXE_VERSION }}-
-            haxelib-android-
-
       - name: Install HMM
         shell: bash
         run: haxelib install hmm --quiet
 
-      - name: Install dependencies
+      - name: Install hxcpp directly
         shell: bash
-        env:
-          GIT_TERMINAL_PROMPT: "0"
-        run: haxelib run hmm install
+        run: |
+          git init "$RUNNER_TEMP/hxcpp"
+          git -C "$RUNNER_TEMP/hxcpp" remote add origin https://github.com/FunkinCrew/hxcpp.git
+          git -C "$RUNNER_TEMP/hxcpp" fetch --depth 1 origin "$HXCPP_COMMIT"
+          git -C "$RUNNER_TEMP/hxcpp" checkout --detach FETCH_HEAD
+          haxelib dev hxcpp "$RUNNER_TEMP/hxcpp"
+
+      - name: Install remaining Haxe dependencies
+        shell: bash
+        run: |
+          jq '.dependencies |= map(select(.name != "hxcpp"))' hmm.json > hmm.json.tmp
+          mv hmm.json.tmp hmm.json
+          haxelib run hmm install
 
       - name: Verify hxcpp
         shell: bash
